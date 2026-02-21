@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         :root {
             --bg-color: #0a0f0e;
@@ -336,6 +337,32 @@
         .tag-out {
             color: var(--danger);
         }
+
+        /* Scanner Region Styles */
+        #reader {
+            width: 100%;
+            background: #000;
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        #reader__scan_region {
+            background: #000;
+        }
+
+        /* Estilos para los botones internos del scanner si aparecen */
+        #reader button {
+            background: var(--accent-teal) !important;
+            color: white !important;
+            border: none !important;
+            padding: 10px 20px !important;
+            border-radius: 8px !important;
+            margin: 10px !important;
+            cursor: pointer;
+            font-family: inherit;
+        }
     </style>
 </head>
 
@@ -358,6 +385,8 @@
     <!-- QUICK MOVEMENT MODE -->
     <div class="quick-mode-container">
         <h2>Quick Movement Mode</h2>
+
+        <div id="reader"></div>
 
         <button class="scan-action" id="btnScan">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -497,9 +526,29 @@
         }
 
         document.getElementById('btnScan').addEventListener('click', () => {
-            // Simulación de escaneo
-            document.getElementById('barcodeInput').value = "BAR-" + Math.floor(Math.random() * 900000 + 100000);
-            alert("Camara activada... Producto detectado!");
+            const readerElement = document.getElementById('reader');
+            readerElement.style.display = 'block';
+            document.getElementById('btnScan').style.display = 'none';
+
+            const html5QrCode = new Html5Qrcode("reader");
+            const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+                document.getElementById('barcodeInput').value = decodedText;
+                html5QrCode.stop().then((ignore) => {
+                    readerElement.style.display = 'none';
+                    document.getElementById('btnScan').style.display = 'flex';
+                    alert("Producto detectado: " + decodedText);
+                }).catch((err) => {
+                    console.error("Error al detener el scanner", err);
+                });
+            };
+            const config = { fps: 10, qrbox: { width: 250, height: 150 } };
+
+            html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback)
+                .catch((err) => {
+                    alert("Error al abrir la cámara: " + err);
+                    readerElement.style.display = 'none';
+                    document.getElementById('btnScan').style.display = 'flex';
+                });
         });
 
         document.getElementById('btnConfirm').addEventListener('click', () => {
