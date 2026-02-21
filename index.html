@@ -275,7 +275,46 @@
             padding: 24px;
             width: 100%;
             max-width: 400px;
+            max-height: 90vh;
+            overflow-y: auto;
             animation: fadeIn 0.3s ease-out;
+        }
+
+        .warehouse-list-container {
+            margin-top: 30px;
+            border-top: 1px solid var(--glass-border);
+            padding-top: 20px;
+        }
+
+        .wh-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .wh-info h5 {
+            font-size: 0.9rem;
+            color: var(--text-main);
+        }
+
+        .wh-info p {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        .btn-edit {
+            padding: 6px 12px;
+            border-radius: 8px;
+            background: transparent;
+            border: 1px solid var(--accent-teal);
+            color: var(--accent-teal);
+            font-size: 0.7rem;
+            cursor: pointer;
         }
 
         .modal-header {
@@ -664,18 +703,33 @@
     <div id="modalWarehouse" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Nueva Bodega</h3>
+                <h3 id="whModalTitle">Gestionar Bodegas</h3>
                 <button class="close-btn" onclick="closeModal('modalWarehouse')">&times;</button>
             </div>
-            <div class="field-group">
-                <label>Nombre de Bodega</label>
-                <div class="input-wrapper"><input type="text" id="newWhName" placeholder="Ej: Bodega Norte"></div>
+
+            <div id="whForm">
+                <input type="hidden" id="editWhId" value="">
+                <div class="field-group">
+                    <label>Nombre de Bodega</label>
+                    <div class="input-wrapper"><input type="text" id="newWhName" placeholder="Ej: Bodega Norte"></div>
+                </div>
+                <div class="field-group">
+                    <label>Ciudad</label>
+                    <div class="input-wrapper"><input type="text" id="newWhCity" placeholder="Ej: Medellín"></div>
+                </div>
+                <button class="confirm-btn" style="margin-top:10px" id="btnSaveWh" onclick="saveWarehouse()">GUARDAR
+                    BODEGA</button>
+                <button class="btn-mini" id="btnCancelEditWh" style="display:none; width:100%; margin-top:10px"
+                    onclick="resetWhForm()">CANCELAR EDICIÓN</button>
             </div>
-            <div class="field-group">
-                <label>Ciudad</label>
-                <div class="input-wrapper"><input type="text" id="newWhCity" placeholder="Ej: Medellín"></div>
+
+            <div class="warehouse-list-container">
+                <h4 style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px;">BODEGAS EXISTENTES
+                </h4>
+                <div id="warehousesList">
+                    <!-- Dinámico -->
+                </div>
             </div>
-            <button class="confirm-btn" style="margin-top:10px" onclick="alert('Bodega Creada')">CREAR BODEGA</button>
         </div>
     </div>
 
@@ -695,11 +749,88 @@
     </nav>
 
     <script>
+        let allWarehouses = [];
+
         function openModal(id) {
             document.getElementById(id).style.display = 'flex';
+            if (id === 'modalWarehouse') loadWarehouses();
         }
         function closeModal(id) {
             document.getElementById(id).style.display = 'none';
+        }
+
+        // Lógica de Bodegas
+        async function loadWarehouses() {
+            try {
+                const res = await fetch('/api/warehouses');
+                allWarehouses = await res.json();
+                renderWarehouses();
+            } catch (err) {
+                console.error("Error cargando bodegas", err);
+            }
+        }
+
+        function renderWarehouses() {
+            const list = document.getElementById('warehousesList');
+            list.innerHTML = allWarehouses.map(wh => `
+                <div class="wh-item">
+                    <div class="wh-info">
+                        <h5>${wh.name}</h5>
+                        <p>${wh.city}</p>
+                    </div>
+                    <button class="btn-edit" onclick="editWarehouse(${wh.id})">EDITAR</button>
+                </div>
+            `).join('');
+        }
+
+        function editWarehouse(id) {
+            const wh = allWarehouses.find(w => w.id === id);
+            if (!wh) return;
+
+            document.getElementById('editWhId').value = wh.id;
+            document.getElementById('newWhName').value = wh.name;
+            document.getElementById('newWhCity').value = wh.city;
+            document.getElementById('whModalTitle').innerText = "Editar Bodega";
+            document.getElementById('btnSaveWh').innerText = "ACTUALIZAR BODEGA";
+            document.getElementById('btnCancelEditWh').style.display = 'block';
+
+            // Hacer scroll hacia arriba del form
+            document.querySelector('#modalWarehouse .modal-content').scrollTop = 0;
+        }
+
+        function resetWhForm() {
+            document.getElementById('editWhId').value = "";
+            document.getElementById('newWhName').value = "";
+            document.getElementById('newWhCity').value = "";
+            document.getElementById('whModalTitle').innerText = "Gestionar Bodegas";
+            document.getElementById('btnSaveWh').innerText = "GUARDAR BODEGA";
+            document.getElementById('btnCancelEditWh').style.display = 'none';
+        }
+
+        async function saveWarehouse() {
+            const id = document.getElementById('editWhId').value;
+            const name = document.getElementById('newWhName').value;
+            const city = document.getElementById('newWhCity').value;
+
+            if (!name || !city) return alert("Completa todos los campos");
+
+            const method = id ? 'PUT' : 'POST';
+            const url = id ? `/api/warehouses/${id}` : '/api/warehouses';
+
+            try {
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, city })
+                });
+                if (res.ok) {
+                    alert(id ? "Bodega actualizada" : "Bodega creada");
+                    resetWhForm();
+                    loadWarehouses();
+                }
+            } catch (err) {
+                alert("Error al guardar bodega");
+            }
         }
         function previewProductPhoto(input) {
             if (input.files && input.files[0]) {
